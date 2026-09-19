@@ -51,10 +51,10 @@
 ### 步骤
 
 ```powershell
-git clone <repo> BSB
+git clone https://github.com/nekwken/bsb-pc-injector.git BSB
 cd BSB
 
-# 1) 构建两个原生应用（可选，但推荐：有安装器界面和托盘图标）
+# 1) 构建主程序（可选，但推荐：有托盘图标和设置窗口）
 powershell -ExecutionPolicy Bypass -File .\build-apps.ps1
 
 # 2) 安装运行时模式：改写快捷方式带上调试端口 + 注册隐藏自启

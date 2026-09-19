@@ -35,13 +35,13 @@ git grep -n "Users\\\\"                                                         
   说明里写清「需要 .NET 8 Desktop 运行时」
 - 建议关闭 Issues 里的空模板，或加一个 `config.yml` 引导先看 `docs/workflow.md`
 
-## 3.5 配置插件自动更新的源
+## 3.5 插件自动更新的源（已配置）
 
 `update-plugin.ps1 -Check/-Auto` 默认从
-`https://raw.githubusercontent.com/hyourinka/bsb-pc-injector/main/payload` 拉 `manifest.json`。
-**发布时把这个占位地址改成你自己的仓库**（`update-plugin.ps1` 里的 `$DefaultSource`），
-或者让用户在 `%LOCALAPPDATA%\bsb-client-patcher\update.json` / 环境变量 `BSB_UPDATE_URL` 里自己配。
-托盘与安装器里的「自动更新」走的就是这个源。
+`https://raw.githubusercontent.com/nekwken/bsb-pc-injector/main/payload` 拉 `manifest.json`
+（`update-plugin.ps1` 里的 `$DefaultSource`）。仓库改名或换账号时记得同步改这里。
+用户也可在 `%LOCALAPPDATA%\bsb-client-patcher\update.json` / 环境变量 `BSB_UPDATE_URL` 里自己配。
+主程序托盘与设置页里的「自动更新」走的就是这个源。
 主源是 GitHub raw 时会自动推导镜像并按顺序回退（jsDelivr CDN → fastly → gcore → ghproxy，
 国内可达性兜底），用户也可在 `update.json` 里加 `"mirrors": [...]` 自定义。
 
