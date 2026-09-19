@@ -535,6 +535,39 @@ public partial class MainWindow : Window
     private async void OnPatch(object sender, RoutedEventArgs e)
         => await RunAsync("正在适配客户端…", "patch", null, "适配完成");
 
+    private async void OnClientScan(object sender, RoutedEventArgs e)
+    {
+        SetStatus("正在扫描客户端安装位置（注册表 / 进程 / 各磁盘）…", "wait");
+        var r = await Backend.CallAsync("client-scan", null, 120000);
+        if (r == null || !Backend.Bool(r.Value, "ok")) { SetStatus("扫描失败", "bad"); return; }
+        var n = 0;
+        if (r.Value.TryGetProperty("candidates", out var arr) && arr.ValueKind == System.Text.Json.JsonValueKind.Array)
+            n = arr.GetArrayLength();
+        await RefreshAsync();
+        SetStatus(n > 0 ? $"扫描到 {n} 个候选位置，已采用第一个有效项" : "未扫描到客户端，可用「更改目录…」手动指定", n > 0 ? "ok" : "warn");
+    }
+
+    private async void OnClientPick(object sender, RoutedEventArgs e)
+    {
+        var picked = await PickPathAsync("folder");
+        if (picked == null) return;
+        try
+        {
+            if (!File.Exists(System.IO.Path.Combine(picked, "resources", "app.asar")))
+            {
+                SetStatus("该目录不是客户端安装根目录（缺 resources\\app.asar）", "bad");
+                return;
+            }
+        }
+        catch { }
+        SetStatus("正在保存客户端位置…", "wait");
+        var r = await Backend.CallAsync("client-set", new[] { new KeyValuePair<string, string>("Path", picked) }, 60000);
+        if (r == null) { SetStatus("保存失败", "bad"); return; }
+        if (!Backend.Bool(r.Value, "ok")) { SetStatus(Backend.Str(r.Value, "error") ?? "保存失败", "bad"); return; }
+        SetStatus("客户端位置已更新：" + Backend.Str(r.Value, "installRoot"), "ok");
+        await RefreshAsync();
+    }
+
     // ---- 插件自动更新 ------------------------------------------------------
 
     private async void OnUpdateCheck(object sender, RoutedEventArgs e)

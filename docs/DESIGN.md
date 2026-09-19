@@ -87,6 +87,26 @@ payload/bsb-config.default.json  <  %LOCALAPPDATA%\bsb-client-patcher\bsb-config
 - 登录自启：`HKCU\Run` → `bin\BSB托盘.exe`（托盘自己再把注入器拉起来）；
   没构建 exe 时退回 `wscript.exe runtime\bsb-injector-hidden.vbs`。
 
+## 客户端位置：自动扫描与手动选择
+
+`tools/Find-Client.ps1` 的查找顺序（可信度从高到低）：
+
+1. `state.json` 里记录的位置（仍有效才用）
+2. **正在运行的客户端进程路径**（`MainModule.FileName` 往上找 `resources\app.asar`）——最可靠
+3. 注册表卸载信息（HKCU/HKLM/WOW6432Node）
+4. 常见安装路径
+5. **全部固定磁盘**的受限扫描：盘根、Program Files、Program Files (x86)、Programs 下
+   名字含 `bili|哔哩` 的文件夹，深度 2
+
+- `Find-BilibiliInstalls` 返回全部候选（去重）；`Find-BilibiliInstall` 返回第一个有效项。
+- `state.json` 里的路径可能失效甚至被写坏（非法字符会让 `Test-Path` 抛异常）——
+  所有探测必须容忍异常，失效时自动扫描兜底；`client-scan` 还会把扫描到的第一个
+  有效位置**写回 state.json**（自愈）。
+- 候选收集必须用 `List[string]` 引用 + 独立函数：闭包脚本块里 `$found +=` 改的是
+  脚本块自己的局部变量，外层数组永远是空的。
+- 安装器「总览」页可「重新扫描」或「更改目录…」（原生目录选择框，校验 `resources\app.asar`
+  与客户端 exe 后写入 `state.json`）。
+
 ## 演进史（为什么是现在这样）
 
 | 阶段 | 做法 | 结果 |

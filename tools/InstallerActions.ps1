@@ -18,7 +18,8 @@
 param(
     [Parameter(Mandatory = $true)]
     [ValidateSet('get-state', 'shortcut-args', 'autostart', 'injector-start', 'injector-stop', 'open-path', 'diagnostics',
-        'patch', 'update-plugin', 'pick-path', 'tray-start', 'tray-stop', 'config-save', 'plugin-check', 'plugin-auto')]
+        'patch', 'update-plugin', 'pick-path', 'tray-start', 'tray-stop', 'config-save', 'plugin-check', 'plugin-auto',
+        'client-scan', 'client-set')]
     [string]$Action,
 
     [string]$Port = '9222',
@@ -43,6 +44,7 @@ try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
 $PatcherRoot = Split-Path $PSScriptRoot -Parent
 . (Join-Path $PatcherRoot "tools\Common.ps1")
+. (Join-Path $PatcherRoot "tools\Find-Client.ps1")
 . (Join-Path $PatcherRoot "tools\Shortcuts.ps1")
 
 $StateRoot = Get-StateRoot
@@ -180,6 +182,10 @@ function Get-UpdateState {
 }
 
 function Get-ClientInfo {
+    <#
+      state.json 里的位置无效时自动扫描（进程路径 → 注册表 → 常见路径 → 磁盘）。
+      state.json 里的路径可能被写坏（非法字符等），所有探测都要能容忍异常。
+    #>
     $info = [ordered]@{ installRoot = $null; exePath = $null; exeVersion = $null; asarPath = $null }
     $st = $null
     if (Test-Path $StatePath) {
@@ -189,13 +195,31 @@ function Get-ClientInfo {
         $info.installRoot = $st.installRoot
         $info.exePath = $st.exePath
     }
-    if ($info.exePath -and (Test-Path $info.exePath)) {
-        try { $info.exeVersion = (Get-Item $info.exePath).VersionInfo.FileVersion } catch {}
+
+    $valid = $false
+    try {
+        $valid = ($info.installRoot -and (Test-Path (Join-Path $info.installRoot "resources\app.asar")))
+    } catch { $valid = $false }   # 非法路径字符等 → 视为无效，走扫描
+
+    if (-not $valid) {
+        $root = Find-BilibiliInstall -StatePath $StatePath
+        if ($root) {
+            $info.installRoot = $root
+            $exe = Get-ChildItem $root -Filter "*.exe" -File -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -match "bili|哔哩" -and $_.Name -notmatch "uninstall|卸载|elevate" } |
+                Select-Object -First 1
+            if ($exe) { $info.exePath = $exe.FullName }
+        }
     }
-    if ($info.installRoot) {
-        $asar = Join-Path $info.installRoot "resources\app.asar"
-        $info.asarPath = if (Test-Path $asar) { $asar } else { $null }
-    }
+    try {
+        if ($info.exePath -and (Test-Path $info.exePath)) {
+            try { $info.exeVersion = (Get-Item $info.exePath).VersionInfo.FileVersion } catch {}
+        }
+        if ($info.installRoot) {
+            $asar = Join-Path $info.installRoot "resources\app.asar"
+            $info.asarPath = if (Test-Path $asar) { $asar } else { $null }
+        }
+    } catch {}
     return $info
 }
 
@@ -476,6 +500,61 @@ function Invoke-Action {
             }
             $cur = Get-PayloadInfo
             return [ordered]@{ ok = $r.ok; exitCode = $r.exitCode; result = $result; version = $cur.runtimeVersion; output = $r.output }
+        }
+
+        'client-scan' {
+            # 全量扫描：返回所有候选根目录 + 当前采用的那个。
+            # state.json 里记录的位置和扫描结果不一致（含被写坏/失效）时，写回第一个有效项（自愈）。
+            $all = @(Find-BilibiliInstalls)
+            $current = (Get-ClientInfo).installRoot
+            $recorded = $null
+            if (Test-Path $StatePath) {
+                try { $recorded = (Get-Content $StatePath -Raw -Encoding UTF8 | ConvertFrom-Json).installRoot } catch {}
+            }
+            $persisted = $false
+            if ($all.Count -gt 0 -and $recorded -ne $all[0]) {
+                try {
+                    # Invoke-Action 只声明了 -Action；$Path 通过动态作用域传给 client-set 分支
+                    $Path = $all[0]
+                    $r = Invoke-Action -Action 'client-set'
+                    if ($r.ok) { $current = $all[0]; $persisted = $true }
+                } catch {}
+            }
+            return [ordered]@{
+                ok        = $true
+                current   = $current
+                persisted = $persisted
+                found     = @($all)
+                candidates = @($all | ForEach-Object {
+                        [ordered]@{ root = $_; isCurrent = ($_ -eq $current) }
+                    })
+            }
+        }
+
+        'client-set' {
+            # 手动指定客户端位置：校验 + 写入 state.json
+            if (-not $Path -or -not (Test-Path $Path)) { throw "路径不存在: $Path" }
+            $root = (Resolve-Path $Path).Path
+            if (-not (Test-Path (Join-Path $root "resources\app.asar"))) {
+                throw "该目录下没有 resources\app.asar，不是客户端安装根目录"
+            }
+            $exe = Get-ChildItem $root -Filter "*.exe" -File -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -match "bili|哔哩" -and $_.Name -notmatch "uninstall|卸载|elevate" } |
+                Select-Object -First 1
+            if (-not $exe) { throw "根目录里找不到客户端 exe" }
+
+            $st = [ordered]@{ mode = "cdp-runtime" }
+            if (Test-Path $StatePath) {
+                try {
+                    $old = Get-Content $StatePath -Raw -Encoding UTF8 | ConvertFrom-Json
+                    foreach ($prop in $old.PSObject.Properties) { $st[$prop.Name] = $prop.Value }
+                } catch {}
+            }
+            $st.installRoot = $root
+            $st.exePath = $exe.FullName
+            $st.lastConfiguredAt = (Get-Date).ToString('o')
+            [System.IO.File]::WriteAllText($StatePath, ($st | ConvertTo-Json -Depth 6), (New-Object System.Text.UTF8Encoding $false))
+            return [ordered]@{ ok = $true; installRoot = $root; exePath = $exe.FullName }
         }
 
         'run-script' {
