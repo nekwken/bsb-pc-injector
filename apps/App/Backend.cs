@@ -56,6 +56,19 @@ internal static class Backend
         catch { }
     }
 
+    /// <summary>
+    /// 动作名/参数名都来自本程序内部（不是用户输入）。这里断言一次，保证拼进命令行开关的
+    /// 只可能是固定字母表：字母、数字，动作名另允许连字符（get-state 这种命名）。
+    /// 目的：杜绝将来有人把用户文本当参数名传进来（那才可能夹带任意开关）。
+    /// </summary>
+    private static string AssertName(string value, string what, bool allowDash = false)
+    {
+        var pattern = allowDash ? "^[A-Za-z][A-Za-z0-9-]*$" : "^[A-Za-z][A-Za-z0-9]*$";
+        if (string.IsNullOrEmpty(value) || !System.Text.RegularExpressions.Regex.IsMatch(value, pattern))
+            throw new ArgumentException($"{what}非法：{value}");
+        return value;
+    }
+
     /// <summary>运行一个后端动作，返回它输出的 JSON（失败时 error 非空）。</summary>
     public static async Task<JsonElement?> CallAsync(string action, IEnumerable<KeyValuePair<string, string>> args = null, int timeoutMs = 180000)
     {
@@ -75,12 +88,16 @@ internal static class Backend
         psi.ArgumentList.Add("-File");
         psi.ArgumentList.Add(Path.Combine(Root, "tools", "InstallerActions.ps1"));
         psi.ArgumentList.Add("-Action");
-        psi.ArgumentList.Add(action);
+        psi.ArgumentList.Add(AssertName(action, "动作名", allowDash: true));
         if (args != null)
         {
             foreach (var kv in args)
             {
-                psi.ArgumentList.Add("-" + kv.Key);
+                // 安全模型：UseShellExecute=false 不经过任何 shell，ArgumentList 由 .NET
+                // 逐元素转义（不是拼接命令行）。参数名来自本程序内部，这里再用白名单断言，
+                // 保证 "-" + 名字 只能拼出固定字母表里的开关；用户选的值（路径等）一律
+                // 作为独立 argv 元素传入，从不拼进字符串。
+                psi.ArgumentList.Add("-" + AssertName(kv.Key, "参数名"));
                 if (kv.Value != null) psi.ArgumentList.Add(kv.Value);   // null = 开关参数
             }
         }
