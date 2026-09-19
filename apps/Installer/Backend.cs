@@ -30,6 +30,32 @@ internal static class Backend
     public static string StateRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "bsb-client-patcher");
 
+    /// <summary>上次成功读取的状态快照：打开窗口时先显示它，避免空等 PowerShell。</summary>
+    private static string CachePath => Path.Combine(StateRoot, "state-cache.json");
+
+    public static JsonElement? LoadCachedState()
+    {
+        try
+        {
+            if (!File.Exists(CachePath)) return null;
+            using var doc = JsonDocument.Parse(File.ReadAllText(CachePath));
+            return doc.RootElement.Clone();
+        }
+        catch { return null; }
+    }
+
+    public static void SaveCachedState(JsonElement state)
+    {
+        try
+        {
+            Directory.CreateDirectory(StateRoot);
+            File.WriteAllText(CachePath,
+                JsonSerializer.Serialize(state, new JsonSerializerOptions { WriteIndented = false }),
+                new UTF8Encoding(false));
+        }
+        catch { }
+    }
+
     /// <summary>运行一个后端动作，返回它输出的 JSON（失败时 error 非空）。</summary>
     public static async Task<JsonElement?> CallAsync(string action, IEnumerable<KeyValuePair<string, string>> args = null, int timeoutMs = 180000)
     {

@@ -47,10 +47,15 @@ powershell -ExecutionPolicy Bypass -File .\enable-seamless.ps1
 
 ```powershell
 # 直接运行
-.in\BSB安装器.exe
+.\bin\BSB安装器.exe
 # 从源码重建（需要 .NET 8 SDK）
 powershell -ExecutionPolicy Bypass -File .\build-apps.ps1
 ```
+
+- **打开时先显示上次状态**：每次刷新成功都会把状态快照写到
+  `%LOCALAPPDATA%\bsb-client-patcher\state-cache.json`，下次打开窗口先渲染它（秒开，
+  状态栏显示「已显示上次缓存 · 正在刷新…」），约 2 秒后换成实时值。删掉这个文件只是让
+  下次打开重新等一次。
 
 - `apps\Installer\`：WPF 单文件 exe。窗口用 `DwmSetWindowAttribute(38, Mica)` +
   `DwmExtendFrameIntoClientArea(-1)` + `Background=Transparent` 得到真云母背景；

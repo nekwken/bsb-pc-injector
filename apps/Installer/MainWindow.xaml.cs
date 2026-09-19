@@ -90,7 +90,17 @@ public partial class MainWindow : Window
         NavLaunch.Checked += (_, _) => ShowPage(PageLaunch);
         NavConfig.Checked += (_, _) => ShowPage(PageConfig);
         NavMaint.Checked += (_, _) => ShowPage(PageMaint);
-        Loaded += async (_, _) => await RefreshAsync();
+        Loaded += async (_, _) =>
+        {
+            // 先渲染上次的状态（秒开），再后台刷新成实时值
+            var cached = Backend.LoadCachedState();
+            if (cached != null)
+            {
+                ApplyState(cached.Value);
+                SetStatus("已显示上次缓存 · 正在刷新…", "wait");
+            }
+            await RefreshAsync();
+        };
     }
 
     /// <summary>
@@ -155,14 +165,23 @@ public partial class MainWindow : Window
 
     private async Task RefreshAsync()
     {
-        SetStatus("正在读取状态…", "wait");
+        // 已经显示过缓存（或上次结果）时不要用「正在读取」盖掉它，保持信息可见
+        if (_state.ValueKind != JsonValueKind.Object) SetStatus("正在读取状态…", "wait");
         var state = await Backend.CallAsync("get-state", null, 30000);
         if (state == null || !Backend.Bool(state.Value, "ok"))
         {
             SetStatus(Backend.Str(state ?? default, "error") ?? "读取状态失败", "bad");
             return;
         }
-        _state = state.Value;
+        Backend.SaveCachedState(state.Value);   // 供下次打开时秒开
+        ApplyState(state.Value);
+        SetStatus($"已刷新 · {DateTime.Now:HH:mm:ss}", "ok");
+    }
+
+    /// <summary>把一份状态渲染到界面（启动时的缓存与实时结果共用同一套）。</summary>
+    private void ApplyState(JsonElement state)
+    {
+        _state = state;
         var s = _state;
 
         VersionText.Text = "插件 v" + (Backend.Str(Nested(s, "payload"), "projectVersion") ?? "?");
@@ -204,8 +223,6 @@ public partial class MainWindow : Window
         BuildLivePages();
         BuildShortcutList();
         LoadConfigIntoForm();
-
-        SetStatus($"已刷新 · {DateTime.Now:HH:mm:ss}", "ok");
     }
 
     private static JsonElement Nested(JsonElement parent, string name)
