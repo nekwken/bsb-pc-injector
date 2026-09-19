@@ -118,6 +118,10 @@ powershell -ExecutionPolicy Bypass -File .\update-plugin.ps1 -ZipPath .\bsb-payl
 
 - 更新源配置在 `%LOCALAPPDATA%\bsb-client-patcher\update.json`（`url` 指向一个含
   `manifest.json` 的目录或 zip，http(s) 或本地路径均可；也可用环境变量 `BSB_UPDATE_URL`）。
+- **镜像回退**：主源是 GitHub raw 时会自动推导镜像（jsDelivr CDN → fastly → gcore → ghproxy），
+  逐个尝试，任一成功即用（`update.json` 的 lastResult 会显示 via 来源）；404、超时、
+  连接失败都会触发回退。还可以在 `update.json` 里加 `"mirrors": ["https://..."]`
+  追加自定义镜像（排在自动推导之后）。
 - 「自动检查」默认开启：托盘启动时会静默检查一次，有新版本会弹气泡，菜单里出现
   「发现新版本（点击自动更新）」。
 - 安装后注入器自动热加载，正在播放的页面在下一次轮询时换成新版，**不需要重启客户端**。

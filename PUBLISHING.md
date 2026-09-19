@@ -42,6 +42,8 @@ git grep -n "Users\\\\"                                                         
 **发布时把这个占位地址改成你自己的仓库**（`update-plugin.ps1` 里的 `$DefaultSource`），
 或者让用户在 `%LOCALAPPDATA%\bsb-client-patcher\update.json` / 环境变量 `BSB_UPDATE_URL` 里自己配。
 托盘与安装器里的「自动更新」走的就是这个源。
+主源是 GitHub raw 时会自动推导镜像并按顺序回退（jsDelivr CDN → fastly → gcore → ghproxy，
+国内可达性兜底），用户也可在 `update.json` 里加 `"mirrors": [...]` 自定义。
 
 ## 4. 发布前自查
 
