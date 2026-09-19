@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+﻿// SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 BSB PC client injector contributors
 // BSB 托盘 — 空降助手托盘图标（原生，低占用）
 //
@@ -22,6 +22,8 @@ internal static class Program
     private static string _root;
     private static NotifyIcon _icon;
     private static ToolStripMenuItem _statusItem;
+    private static ToolStripMenuItem _updateItem;
+    private static ToolStripMenuItem _checkItem;
     private static ToolStripMenuItem _startItem;
     private static ToolStripMenuItem _restartItem;
     private static ToolStripMenuItem _stopItem;
@@ -47,6 +49,10 @@ internal static class Program
         var menu = new ContextMenuStrip { ShowImageMargin = false };
         _statusItem = new ToolStripMenuItem("状态：读取中…") { Enabled = false };
         menu.Items.Add(_statusItem);
+        _updateItem = new ToolStripMenuItem("发现新版本（点击自动更新）") { Visible = false };
+        menu.Items.Add(_updateItem);
+        _checkItem = new ToolStripMenuItem("检查插件更新");
+        menu.Items.Add(_checkItem);
         menu.Items.Add(new ToolStripSeparator());
 
         var installerItem = new ToolStripMenuItem("打开安装器");
@@ -76,6 +82,23 @@ internal static class Program
         projectItem.Click += (_, _) => OpenPath("project");
         exitItem.Click += (_, _) => { _icon.Visible = false; Application.Exit(); };
 
+        _updateItem.Click += (_, _) =>
+        {
+            _updateItem.Text = "正在更新…";
+            Run("plugin-auto");
+            _updateItem.Visible = false;
+            RefreshStatus();
+        };
+        _checkItem.Click += (_, _) =>
+        {
+            _checkItem.Enabled = false;
+            Task.Run(() =>
+            {
+                var has = CheckForUpdate(showBalloon: true);
+                SafeInvoke(() => { _checkItem.Enabled = true; ShowUpdateItem(has); });
+            });
+        };
+
         menu.Opening += (_, _) => RefreshStatus();
 
         _icon = new NotifyIcon
@@ -91,8 +114,90 @@ internal static class Program
         if (!InjectorRunning()) Run("injector-start", quiet: true);
         RefreshStatus();
 
+        // 启动时按 update.json 的 autoCheck 静默检查一次
+        if (AutoCheckEnabled())
+        {
+            Task.Run(() =>
+            {
+                var has = CheckForUpdate(showBalloon: true);
+                SafeInvoke(() => ShowUpdateItem(has));
+            });
+        }
+
         Application.Run();
         _icon.Dispose();
+    }
+
+    // ---------------------------------------------------------------- 更新检查
+
+    private static void SafeInvoke(Action action)
+    {
+        try
+        {
+            if (_icon != null && _icon.ContextMenuStrip != null && _icon.ContextMenuStrip.IsHandleCreated)
+                _icon.ContextMenuStrip.BeginInvoke(action);
+            else
+                action();
+        }
+        catch { action(); }
+    }
+
+    private static bool AutoCheckEnabled()
+    {
+        try
+        {
+            var path = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "bsb-client-patcher", "update.json");
+            if (!File.Exists(path)) return true;
+            using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path));
+            if (doc.RootElement.TryGetProperty("autoCheck", out var v))
+                return v.ValueKind == System.Text.Json.JsonValueKind.True;
+            return true;
+        }
+        catch { return true; }
+    }
+
+    /// <summary>静默检查；有新版本时弹气泡并返回 true（在后台线程调用）。</summary>
+    private static bool CheckForUpdate(bool showBalloon)
+    {
+        try
+        {
+            var state = Call("plugin-check", 60000);
+            if (state == null) return false;
+            if (!state.Value.TryGetProperty("hasUpdate", out var has)) return false;
+            var latest = "";
+            if (state.Value.TryGetProperty("info", out var info) && info.TryGetProperty("latest", out var lv))
+                latest = lv.ValueKind == System.Text.Json.JsonValueKind.String ? lv.GetString() : lv.ToString();
+            if (has.ValueKind != System.Text.Json.JsonValueKind.True) return false;
+            if (showBalloon)
+            {
+                try { _icon.ShowBalloonTip(6000, "空降助手", "插件有新版本 v" + latest + "，右键托盘可自动更新", ToolTipIcon.Info); } catch { }
+            }
+            return true;
+        }
+        catch { return false; }
+    }
+
+    private static void ShowUpdateItem(bool has)
+    {
+        if (_updateItem == null) return;
+        if (!has) { _updateItem.Visible = false; return; }
+        var latest = "";
+        try
+        {
+            var path = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "bsb-client-patcher", "update.json");
+            using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path));
+            if (doc.RootElement.TryGetProperty("latestVersion", out var v))
+                latest = v.ValueKind == System.Text.Json.JsonValueKind.String ? v.GetString() : v.ToString();
+        }
+        catch { }
+        _updateItem.Text = string.IsNullOrEmpty(latest)
+            ? "发现新版本（点击自动更新）"
+            : "发现新版本 v" + latest + "（点击自动更新）";
+        _updateItem.Visible = true;
     }
 
     // ---------------------------------------------------------------- 状态

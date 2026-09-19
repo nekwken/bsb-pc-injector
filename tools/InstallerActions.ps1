@@ -18,7 +18,7 @@
 param(
     [Parameter(Mandatory = $true)]
     [ValidateSet('get-state', 'shortcut-args', 'autostart', 'injector-start', 'injector-stop', 'open-path', 'diagnostics',
-        'patch', 'update-plugin', 'unpatch', 'pick-path', 'tray-start', 'tray-stop', 'config-save')]
+        'patch', 'update-plugin', 'pick-path', 'tray-start', 'tray-stop', 'config-save', 'plugin-check', 'plugin-auto')]
     [string]$Action,
 
     [string]$Port = '9222',
@@ -42,7 +42,7 @@ $ErrorActionPreference = 'Stop'
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
 $PatcherRoot = Split-Path $PSScriptRoot -Parent
-. (Join-Path $PatcherRoot "tools\Asar.ps1")
+. (Join-Path $PatcherRoot "tools\Common.ps1")
 . (Join-Path $PatcherRoot "tools\Shortcuts.ps1")
 
 $StateRoot = Get-StateRoot
@@ -165,8 +165,22 @@ function Get-ConfigInfo {
     return [ordered]@{ config = $null; source = 'none'; path = $null }
 }
 
+function Get-UpdateState {
+    $p = Join-Path $StateRoot "update.json"
+    $info = [ordered]@{ url = $null; autoCheck = $true; lastCheck = $null; lastResult = $null; latestVersion = $null }
+    if (Test-Path $p) {
+        try {
+            $u = Get-Content $p -Raw -Encoding UTF8 | ConvertFrom-Json
+            foreach ($k in @('url', 'autoCheck', 'lastCheck', 'lastResult', 'latestVersion')) {
+                if ($null -ne $u.$k) { $info[$k] = $u.$k }
+            }
+        } catch {}
+    }
+    return $info
+}
+
 function Get-ClientInfo {
-    $info = [ordered]@{ installRoot = $null; exePath = $null; exeVersion = $null; asarPath = $null; asarHash = $null; officialHash = $null; asarOfficial = $null }
+    $info = [ordered]@{ installRoot = $null; exePath = $null; exeVersion = $null; asarPath = $null }
     $st = $null
     if (Test-Path $StatePath) {
         try { $st = Get-Content $StatePath -Raw -Encoding UTF8 | ConvertFrom-Json } catch {}
@@ -180,15 +194,7 @@ function Get-ClientInfo {
     }
     if ($info.installRoot) {
         $asar = Join-Path $info.installRoot "resources\app.asar"
-        if (Test-Path $asar) {
-            $info.asarPath = $asar
-            $info.asarHash = Get-FileSha256 -Path $asar
-            $bak = Join-Path $StateRoot "backups\app.asar.bak"
-            if (Test-Path $bak) {
-                $info.officialHash = Get-FileSha256 -Path $bak
-                $info.asarOfficial = ($info.asarHash -eq $info.officialHash)
-            }
-        }
+        $info.asarPath = if (Test-Path $asar) { $asar } else { $null }
     }
     return $info
 }
@@ -261,7 +267,6 @@ function Build-Diagnostics {
     $null = $sb.AppendLine("state root : $StateRoot")
     $c = Get-ClientInfo
     $null = $sb.AppendLine("client     : $($c.installRoot)  exe=$($c.exePath)  v=$($c.exeVersion)")
-    $null = $sb.AppendLine("asar       : official=$($c.asarOfficial) hash=$($c.asarHash)")
     $p = Get-PayloadInfo
     $null = $sb.AppendLine("payload    : project=$($p.projectVersion) runtime=$($p.runtimeVersion)")
     $procs = @(Get-InjectorProcs)
@@ -302,6 +307,7 @@ function Invoke-Action {
                 }
                 tray      = [ordered]@{ count = @(Get-TrayProcs).Count }
                 configInfo = Get-ConfigInfo
+                updateInfo = (Get-UpdateState)
                 autostart = [ordered]@{ enabled = [bool](Get-InjectorAutostart); command = (Get-InjectorAutostart) }
                 shortcuts = @(Get-ShortcutInfo)
             }
@@ -440,13 +446,41 @@ function Invoke-Action {
             return Invoke-Script -Script "update-plugin.ps1" -ScriptArgs $scriptArgs
         }
 
-        'unpatch' {
-            return Invoke-Script -Script "unpatch.ps1" -ElevatedRun
+        'plugin-check' {
+            # 只检查是否有新版本；update-plugin.ps1 的退出码 10 = 有新版。结果写进 update.json。
+            $r = Invoke-Script -Script "update-plugin.ps1" -ScriptArgs @('-Check')
+            $upd = Join-Path $StateRoot "update.json"
+            $info = [ordered]@{ current = $null; latest = $null; lastCheck = $null; lastResult = $null }
+            if (Test-Path $upd) {
+                try {
+                    $u = Get-Content $upd -Raw -Encoding UTF8 | ConvertFrom-Json
+                    $info.lastCheck = $u.lastCheck
+                    $info.lastResult = $u.lastResult
+                    $info.latest = $u.latestVersion
+                } catch {}
+            }
+            $cur = Get-PayloadInfo
+            $info.current = $cur.runtimeVersion
+            $hasNew = $false
+            try { $hasNew = (Compare-Version $info.latest $info.current) -gt 0 } catch {}
+            return [ordered]@{ ok = $true; hasUpdate = $hasNew; info = $info; output = $r.output }
+        }
+
+        'plugin-auto' {
+            # 自动更新：走 update.json 里的更新源，有新版本就装（安装器/托盘都调它）
+            $r = Invoke-Script -Script "update-plugin.ps1" -ScriptArgs @('-Auto')
+            $upd = Join-Path $StateRoot "update.json"
+            $result = $null
+            if (Test-Path $upd) {
+                try { $result = (Get-Content $upd -Raw -Encoding UTF8 | ConvertFrom-Json).lastResult } catch {}
+            }
+            $cur = Get-PayloadInfo
+            return [ordered]@{ ok = $r.ok; exitCode = $r.exitCode; result = $result; version = $cur.runtimeVersion; output = $r.output }
         }
 
         'run-script' {
             # only ever reached from an elevated re-entry; keep the surface tiny
-            $allowed = @('patch.ps1', 'unpatch.ps1')
+            $allowed = @('patch.ps1')
             if ($allowed -notcontains $Path) { throw "script not allowed: $Path" }
             return Invoke-Script -Script $Path
         }

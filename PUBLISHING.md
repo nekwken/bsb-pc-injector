@@ -35,6 +35,14 @@ git grep -n "Users\\\\"                                                         
   说明里写清「需要 .NET 8 Desktop 运行时」
 - 建议关闭 Issues 里的空模板，或加一个 `config.yml` 引导先看 `docs/workflow.md`
 
+## 3.5 配置插件自动更新的源
+
+`update-plugin.ps1 -Check/-Auto` 默认从
+`https://raw.githubusercontent.com/hyourinka/bsb-pc-injector/main/payload` 拉 `manifest.json`。
+**发布时把这个占位地址改成你自己的仓库**（`update-plugin.ps1` 里的 `$DefaultSource`），
+或者让用户在 `%LOCALAPPDATA%\bsb-client-patcher\update.json` / 环境变量 `BSB_UPDATE_URL` 里自己配。
+托盘与安装器里的「自动更新」走的就是这个源。
+
 ## 4. 发布前自查
 
 - [ ] `README.md` 里的截图路径存在（`docs/images/installer.png`）

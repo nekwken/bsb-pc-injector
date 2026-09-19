@@ -100,32 +100,41 @@ powershell -ExecutionPolicy Bypass -File .\start-injector.ps1 -Background
 若官方更新重建了快捷方式（丢掉调试端口），跑一次 `.\patch.ps1` 重新改写即可。
 注意它默认**不再创建**「哔哩哔哩-BSB」专用图标（无感模式下不需要），需要旧图标时加 `-WithLaunchers`。
 
-## 插件一键更新
+## 插件更新（含自动更新）
 
 ```powershell
+# 检查更新（走更新源；退出码 10 = 有新版本）
+powershell -ExecutionPolicy Bypass -File .\update-plugin.ps1 -Check
+
+# 自动更新：有新版本就下载安装（托盘和安装器里都是这一个动作）
+powershell -ExecutionPolicy Bypass -File .\update-plugin.ps1 -Auto
+
 # 方式 A：用仓库内 payload 目录
 powershell -ExecutionPolicy Bypass -File .\update-plugin.ps1 -PayloadDir .\payload -Force
 
 # 方式 B：用打包好的 zip
-powershell -ExecutionPolicy Bypass -File .\update-plugin.ps1 -ZipPath .\bsb-payload-0.2.7.zip -Force
+powershell -ExecutionPolicy Bypass -File .\update-plugin.ps1 -ZipPath .\bsb-payload-x.y.z.zip -Force
 ```
 
-注入器每 3 秒重读一次 payload：文件变了就热加载，正在播放的页面会在下一次轮询时换成新版，
-**不需要重启客户端**。前提是把 `manifest.json` 的 `version` 与 `payload/bsb-ui.js` 里的版本号一起加上去，
-版本没变则页面会继续跑已经注入的那份。
+- 更新源配置在 `%LOCALAPPDATA%\bsb-client-patcher\update.json`（`url` 指向一个含
+  `manifest.json` 的目录或 zip，http(s) 或本地路径均可；也可用环境变量 `BSB_UPDATE_URL`）。
+- 「自动检查」默认开启：托盘启动时会静默检查一次，有新版本会弹气泡，菜单里出现
+  「发现新版本（点击自动更新）」。
+- 安装后注入器自动热加载，正在播放的页面在下一次轮询时换成新版，**不需要重启客户端**。
+  前提是 `manifest.json` 的 `version` 与 `payload/bsb-ui.js` 里的 `VERSION` 一起 +1；
+  版本没变则页面继续跑已注入的那份（版本门控只升级、不降级；降级后刷新页面即可）。
 
 ## 还原官方状态
 
+**没有「还原」这一步**——本项目从不修改官方客户端文件，停掉注入器就是原版：
+
 ```powershell
-# 停止注入器：直接关掉注入器窗口，或
 Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'injector\.mjs' } |
   ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
 
-# 恢复官方 asar（当前方案本就没改，一般用不到）
-powershell -ExecutionPolicy Bypass -File .\unpatch.ps1
+# 并移除登录自启 / 托盘
+powershell -ExecutionPolicy Bypass -File .\enable-seamless.ps1 -Uninstall
 ```
-
-官方 `app.asar` 备份：`%LOCALAPPDATA%\bsb-client-patcher\backups\app.asar.bak`
 
 ## 插件包格式（payload）
 
@@ -133,10 +142,8 @@ powershell -ExecutionPolicy Bypass -File .\unpatch.ps1
 payload/
   manifest.json           # name/version/文件清单/兼容性
   bsb-content.js          # 页面内 skip 引擎（识别 bvid+cid、查表、跳/静音）
-  bsb-ui.js               # 播放页 UI（进度条色条、临时空降提示、悬浮面板）
+  bsb-ui.js               # 播放页 UI（进度条色条、BSB 按钮、悬浮面板、空降提示）
   bsb-settings.js         # 官方设置页里的「空降助手」面板
-  bootstrap-lite.js       # 早期 asar 方案遗留，运行时模式不使用
-  bsb-preload.js          # 同上，遗留
   bsb-config.default.json # 默认配置
 ```
 

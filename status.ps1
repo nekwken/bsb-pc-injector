@@ -10,7 +10,7 @@ param()
 
 $ErrorActionPreference = "Continue"
 $PatcherRoot = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
-. (Join-Path $PatcherRoot "tools\Asar.ps1")
+. (Join-Path $PatcherRoot "tools\Common.ps1")
 . (Join-Path $PatcherRoot "tools\Find-Client.ps1")
 
 $StateRoot = Get-StateRoot
@@ -102,62 +102,39 @@ if (Test-Path $injLog) {
     Write-Host "  injector log            : $injLog"
 }
 
+# --- 客户端与插件 ----------------------------------------------------------
 $root = $null
 if (Test-Path $StatePath) {
     $st = Get-Content $StatePath -Raw -Encoding UTF8 | ConvertFrom-Json
-    Write-Host "Install root            : $($st.installRoot)"
-    Write-Host "Client version          : $($st.clientVersion)"
-    Write-Host "Last patched payload    : $($st.payloadVersion)"
-    Write-Host "Last patched at         : $($st.lastPatchedAt)"
-    Write-Host "Last patched asar hash  : $($st.lastPatchedAsarHash)"
-    Write-Host "Last official asar hash : $($st.lastOfficialAsarHash)"
-    Write-Host "Backup                  : $($st.backupPath)"
+    Write-Host ""
+    Write-Host "Client / plugin:" -ForegroundColor Cyan
+    Write-Host "  install root            : $($st.installRoot)"
+    Write-Host "  payload                 : $($st.payloadVersion)"
     $root = $st.installRoot
-} else {
-    Write-Host "state.json              : (missing - never patched?)"
 }
-
-if (-not $root) {
-    $root = Find-BilibiliInstall -StatePath $StatePath
-}
-
-Write-Host ""
+if (-not $root) { $root = Find-BilibiliInstall -StatePath $StatePath }
 if ($root -and (Test-Path (Join-Path $root "resources\app.asar"))) {
-    $asar = Join-Path $root "resources\app.asar"
-    $hash = Get-FileSha256 -Path $asar
-    Write-Host "Found client            : $root"
-    Write-Host "Current asar SHA256     : $hash"
-    $yml = Join-Path $root "resources\app-update.yml"
-    if (Test-Path $yml) {
-        Write-Host "app-update.yml          :"
-        Get-Content $yml | ForEach-Object { Write-Host "    $_" }
-    }
-
-    $stHash = $null
-    if (Test-Path $StatePath) {
-        try { $stHash = (Get-Content $StatePath -Raw -Encoding UTF8 | ConvertFrom-Json).lastPatchedAsarHash } catch {}
-    }
-    if ($stHash -and $hash -eq $stHash) {
-        Write-Host "Patch status            : ACTIVE (hash match)" -ForegroundColor Green
-    } elseif ($stHash -and $hash -ne $stHash) {
-        Write-Host "Patch status            : STALE / OFFICIAL UPDATE" -ForegroundColor Yellow
-        Write-Host "  -> Run .\patch.ps1 to re-apply"
-    } else {
-        Write-Host "Patch status            : UNKNOWN" -ForegroundColor Yellow
-    }
+    Write-Host "  client asar             : 在位（本方案不修改它）"
 } else {
-    Write-Host "Found client            : (not found)" -ForegroundColor Yellow
+    Write-Host "  client                  : (not found)" -ForegroundColor Yellow
 }
 
-$bak = Join-Path $BackupDir "app.asar.bak"
-Write-Host ""
-Write-Host "Backup exists           : $(Test-Path $bak)"
-if (Test-Path $bak) {
-    Write-Host "Backup SHA256           : $(Get-FileSha256 -Path $bak)"
+# --- 插件更新 --------------------------------------------------------------
+$upd = Join-Path $StateRoot "update.json"
+if (Test-Path $upd) {
+    try {
+        $u = Get-Content $upd -Raw -Encoding UTF8 | ConvertFrom-Json
+        Write-Host ""
+        Write-Host "Plugin update:" -ForegroundColor Cyan
+        Write-Host "  last check              : $($u.lastCheck)  ->  $($u.lastResult)"
+        Write-Host "  latest known            : $($u.latestVersion)"
+        Write-Host "  auto check              : $($u.autoCheck)"
+    } catch {}
 }
+
 Write-Host ""
 Write-Host "Commands:"
-Write-Host "  .\patch.ps1                 # one-click adapt / re-apply after update"
-Write-Host "  .\update-plugin.ps1         # one-click plugin update"
-Write-Host "  .\unpatch.ps1               # restore official files"
+Write-Host "  .\update-plugin.ps1 -Check                          # 检查插件更新（退出码 10=有新版）"
+Write-Host "  .\update-plugin.ps1 -Auto                           # 有新版本就自动安装"
+Write-Host "  .\update-plugin.ps1 -PayloadDir .\payload -Force    # 从本地目录安装"
 Write-Host ""

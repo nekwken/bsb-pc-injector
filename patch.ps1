@@ -3,8 +3,8 @@
 # Copyright (c) 2026 BSB PC client injector contributors
 <#
 .SYNOPSIS
-  Install BSB runtime mode: restore official asar + launcher + injector.
-  Does NOT patch app.asar. Official client updates do not require re-patching.
+  Install BSB runtime mode: sync payload, point launch shortcuts at the debug port,
+  register the hidden injector. The official client is never modified.
 
 .EXAMPLE
   .\patch.ps1
@@ -16,14 +16,13 @@ param(
     [string]$PayloadDir,
     [switch]$Force,
     [switch]$NoAutostart,   # skip logon autostart + shortcut rewriting
-    [switch]$WithLaunchers, # also (re)create the 哔哩哔哩-BSB launcher shortcuts
-    [switch]$SkipUpdateYml  # kept for compat; runtime mode never needs this
+    [switch]$WithLaunchers  # also (re)create the 哔哩哔哩-BSB launcher shortcuts
 )
 
 $ErrorActionPreference = "Stop"
 $PatcherRoot = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
 
-. (Join-Path $PatcherRoot "tools\Asar.ps1")
+. (Join-Path $PatcherRoot "tools\Common.ps1")
 . (Join-Path $PatcherRoot "tools\Find-Client.ps1")
 . (Join-Path $PatcherRoot "tools\Shortcuts.ps1")
 
@@ -36,19 +35,18 @@ function Write-Utf8NoBom {
 }
 
 $StateRoot = Get-StateRoot
-$BackupDir = Join-Path $StateRoot "backups"
 $LogDir = Join-Path $StateRoot "logs"
 $PayloadRuntime = Join-Path $StateRoot "payload"
 $StatePath = Join-Path $StateRoot "state.json"
 $RuntimeDir = Join-Path $PatcherRoot "runtime"
-New-Item -ItemType Directory -Force -Path $StateRoot, $BackupDir, $LogDir, $PayloadRuntime | Out-Null
+New-Item -ItemType Directory -Force -Path $StateRoot, $LogDir, $PayloadRuntime | Out-Null
 $logFile = Join-Path $LogDir ("runtime-install-{0:yyyyMMdd-HHmmss}.log" -f (Get-Date))
 Start-Transcript -Path $logFile -Append | Out-Null
 
 try {
     Write-Host ""
     Write-Host "BSB Client Runtime Injector" -ForegroundColor Magenta
-    Write-Host "Mode: CDP runtime (official app.asar will NOT be patched)"
+    Write-Host "Mode: CDP runtime injection (官方客户端文件不做任何修改)"
     Write-Host "State: $StateRoot"
     Write-Host ""
 
@@ -94,41 +92,10 @@ try {
     }
     if (-not $exe) { throw "Cannot find client exe under $root" }
     Write-Ok "Exe: $($exe.FullName)"
-
-    # Ensure official asar (unpatch if previously patched)
+    # 官方客户端从不被修改，所以这里只确认它在位；asar 相关内容已全部移除
     $asarPath = Join-Path $root "resources\app.asar"
-    $asarHash = Get-FileSha256 -Path $asarPath
-    Write-Step "Check app.asar official-ness"
-    $tool = Initialize-AsarTool -PatcherRoot $PatcherRoot
-    $probe = Join-Path $StateRoot "work-probe"
-    Expand-AsarFile -Tool $tool -AsarPath $asarPath -DestDir $probe
-    $idxTxt = Get-Content (Join-Path $probe "index.js") -Raw -Encoding UTF8
-    $mainTxt = ""
-    try { $mainTxt = Get-Content (Join-Path $probe "main\index.js") -Raw -Encoding UTF8 } catch {}
-    $needsRestore = $false
-    if ($idxTxt -match "bsb-hooks|bsb-bootstrap|__BSB_HOST__") { $needsRestore = $true }
-    if ($mainTxt -match "bsb/bsb-hooks") { $needsRestore = $true }
-    if (Test-Path (Join-Path $probe "bsb\manifest.json")) { $needsRestore = $true }
-
-    if ($needsRestore) {
-        Write-Warn2 "asar contains BSB patch - restoring official backup"
-        $bak = Join-Path $BackupDir "app.asar.bak"
-        if (-not (Test-Path $bak)) { throw "No official backup at $bak" }
-        try {
-            Copy-Item -Force $bak $asarPath
-            Write-Ok "app.asar restored from backup"
-        } catch {
-            throw "Cannot write app.asar (need admin). Run unpatch.ps1 elevated, then re-run this script."
-        }
-        # restore yml best-effort
-        $ymlBak = Join-Path $BackupDir "app-update.yml.bak"
-        $yml = Join-Path $root "resources\app-update.yml"
-        if (Test-Path $ymlBak) {
-            try { Copy-Item -Force $ymlBak $yml } catch {}
-        }
-    } else {
-        Write-Ok "asar already official"
-    }
+    if (-not (Test-Path $asarPath)) { throw "app.asar not found: $asarPath" }
+    Write-Ok "官方 asar 在位（本方案不修改它）"
 
     # 无感模式下不需要专用图标（快捷方式已就地带上调试端口），所以默认不再创建；
     # 需要旧的「哔哩哔哩-BSB」图标时加 -WithLaunchers。
@@ -212,8 +179,6 @@ pause
         exePath              = $exe.FullName
         launcherArgs         = $launcherArgs
         payloadVersion       = $manifest.version
-        asarHash             = $asarHash
-        asarPatched          = $false
         lastConfiguredAt     = (Get-Date).ToString("o")
         logFile              = $logFile
         note                 = "Client shortcuts carry the debug port; injector autostarts hidden at logon. Official asar is not modified."

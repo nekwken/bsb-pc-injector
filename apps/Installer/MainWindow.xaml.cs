@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+﻿// SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 BSB PC client injector contributors
 // 空降助手安装器：Mica 背景 + 四个页面，所有实际操作都转发给 PowerShell 后端。
 
@@ -41,6 +41,7 @@ public partial class MainWindow : Window
     };
 
     private readonly Dictionary<string, CheckBox> _catBoxes = new();
+    private bool _updatingAutoToggle;   // 程序性赋值时不回写 update.json
     private readonly Dictionary<string, CheckBox> _actionBoxes = new();
     private readonly List<(CheckBox Box, string Path)> _shortcutBoxes = new();
     private JsonElement _state;
@@ -169,8 +170,8 @@ public partial class MainWindow : Window
         var client = Nested(s, "client");
         ClientVersion.Text = Backend.Str(client, "exeVersion") ?? "未知";
         ClientPath.Text = Backend.Str(client, "installRoot") ?? "未找到";
-        var asarOfficial = Backend.Bool(client, "asarOfficial");
-        Paint(AsarPill, AsarDot, AsarText, asarOfficial ? "官方原版" : "与备份不一致", asarOfficial ? "ok" : "warn");
+        var asarInPlace = !string.IsNullOrEmpty(Backend.Str(client, "asarPath"));
+        Paint(AsarPill, AsarDot, AsarText, asarInPlace ? "在位（未修改）" : "未找到", asarInPlace ? "ok" : "bad");
 
         var inj = Nested(s, "injector");
         var injCount = Backend.Int(inj, "count");
@@ -186,6 +187,19 @@ public partial class MainWindow : Window
         Paint(TrayPill, TrayDot, TrayText, trayCount > 0 ? "运行中" : "未运行", trayCount > 0 ? "ok" : "warn");
 
         AutostartBox.IsChecked = auto;
+
+        // 插件更新状态
+        var upd = Nested(s, "updateInfo");
+        UpdCurrent.Text = "v" + (Backend.Str(Nested(s, "payload"), "runtimeVersion") ?? "?");
+        UpdLatest.Text = Backend.Str(upd, "latestVersion") != null ? "v" + Backend.Str(upd, "latestVersion") : "—";
+        var lastCheck = Backend.Str(upd, "lastCheck");
+        var lastResult = Backend.Str(upd, "lastResult");
+        UpdHint.Text = lastCheck != null
+            ? "上次检查：" + lastCheck + " · " + (lastResult ?? "")
+            : "尚未检查过更新（更新源可在 %LOCALAPPDATA%\\bsb-client-patcher\\update.json 配置）";
+        _updatingAutoToggle = true;   // 程序性赋值不应触发事件回写
+        UpdAutoCheck.IsChecked = Backend.Bool(upd, "autoCheck", true);
+        _updatingAutoToggle = false;
 
         BuildLivePages();
         BuildShortcutList();
@@ -521,12 +535,65 @@ public partial class MainWindow : Window
     private async void OnPatch(object sender, RoutedEventArgs e)
         => await RunAsync("正在适配客户端…", "patch", null, "适配完成");
 
-    private async void OnUnpatch(object sender, RoutedEventArgs e)
+    // ---- 插件自动更新 ------------------------------------------------------
+
+    private async void OnUpdateCheck(object sender, RoutedEventArgs e)
     {
-        var answer = MessageBox.Show("用备份覆盖官方 app.asar？\n\n当前方案并没有修改 asar，通常不需要这一步。\n继续会弹出管理员授权窗口。",
-            "还原官方客户端", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
-        if (answer != MessageBoxResult.OK) return;
-        await RunAsync("正在还原（需要授权）…", "unpatch", null, "已还原");
+        SetStatus("正在检查插件更新…", "wait");
+        var r = await Backend.CallAsync("plugin-check", null, 60000);
+        if (r == null || !Backend.Bool(r.Value, "ok")) { SetStatus("检查失败", "bad"); return; }
+        var hasUpdate = Backend.Bool(r.Value, "hasUpdate");
+        var info = Nested(r.Value, "info");
+        UpdLatest.Text = Backend.Str(info, "latest") ?? "—";
+        UpdHint.Text = "上次检查：" + (Backend.Str(info, "lastCheck") ?? "—") + " · " + (Backend.Str(info, "lastResult") ?? "");
+        SetStatus(hasUpdate
+            ? "有新版本 v" + Backend.Str(info, "latest") + "，点「自动更新」安装"
+            : "已是最新版本", hasUpdate ? "warn" : "ok");
+    }
+
+    private async void OnUpdateAuto(object sender, RoutedEventArgs e)
+    {
+        SetStatus("正在自动更新插件…", "wait");
+        var r = await Backend.CallAsync("plugin-auto", null, 180000);
+        if (r == null || !Backend.Bool(r.Value, "ok")) { SetStatus("自动更新失败", "bad"); return; }
+        var res = Backend.Str(r.Value, "result");
+        var ver = Backend.Str(r.Value, "version");
+        SetStatus((res ?? "完成") + (ver != null ? " · 当前 v" + ver : ""), "ok");
+        await RefreshAsync();
+    }
+
+    private async void OnUpdateAutoToggle(object sender, RoutedEventArgs e)
+    {
+        if (_updatingAutoToggle) return;   // 程序性赋值触发的事件直接忽略
+        // 开关状态持久化到 update.json 的 autoCheck
+        var on = UpdAutoCheck.IsChecked == true;
+        SetStatus(on ? "已开启：打开安装器时自动检查更新" : "已关闭自动检查", null);
+        await Task.Run(() =>
+        {
+            try
+            {
+                var path = Path.Combine(Backend.StateRoot, "update.json");
+                var cfg = new Dictionary<string, object>();
+                if (File.Exists(path))
+                {
+                    var json = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path)).RootElement.Clone();
+                    foreach (var p in json.EnumerateObject())
+                    {
+                        cfg[p.Name] = p.Value.ValueKind switch
+                        {
+                            System.Text.Json.JsonValueKind.True => true,
+                            System.Text.Json.JsonValueKind.False => false,
+                            System.Text.Json.JsonValueKind.Number => p.Value.GetDouble(),
+                            System.Text.Json.JsonValueKind.String => p.Value.GetString(),
+                            _ => (object)p.Value.ToString()
+                        };
+                    }
+                }
+                cfg["autoCheck"] = on;
+                File.WriteAllText(path, System.Text.Json.JsonSerializer.Serialize(cfg, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }), new System.Text.UTF8Encoding(false));
+            }
+            catch { }
+        });
     }
 
     private async void OnUpdateRepo(object sender, RoutedEventArgs e)

@@ -79,13 +79,13 @@ powershell -ExecutionPolicy Bypass -File .\status.ps1
 - **播放页**：鼠标移到画面上 → 分辨率控件左侧的 **BSB** → 悬浮面板
 - **完整设置**：主界面 **设置 → 空降助手**
 - **安装器**：双击 `bin\BSB安装器.exe`
-- **托盘**：右键图标可启停注入器 / 打开安装器 / 看日志
+- **托盘**：右键图标可启停注入器 / 打开安装器 / 看日志；有插件新版本时会提示
 - 注入器日志：`%LOCALAPPDATA%\bsb-client-patcher\logs\injector.log`
 
 ## 卸载
 
 ```powershell
-# 停用自启与托盘，停掉注入器
+# 停用自启与托盘，停掉注入器（官方客户端从未被修改，停掉即原版）
 powershell -ExecutionPolicy Bypass -File .\enable-seamless.ps1 -Uninstall
 
 # 若之前改过系统级快捷方式，把它改回来（去掉调试端口参数）

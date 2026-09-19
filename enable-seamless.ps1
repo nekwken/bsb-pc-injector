@@ -25,7 +25,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $PatcherRoot = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
-. (Join-Path $PatcherRoot "tools\Asar.ps1")
+. (Join-Path $PatcherRoot "tools\Common.ps1")
 . (Join-Path $PatcherRoot "tools\Find-Client.ps1")
 . (Join-Path $PatcherRoot "tools\Shortcuts.ps1")
 
