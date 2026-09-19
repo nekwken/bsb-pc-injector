@@ -50,7 +50,7 @@ $UpdateCfgPath = Join-Path $StateRoot "update.json"
 New-Item -ItemType Directory -Force -Path $StateRoot | Out-Null
 
 # 默认更新源：仓库里的 payload 目录（发布到 GitHub 后改成 raw 地址即可）
-$DefaultSource = "https://raw.githubusercontent.com/hyourinka/bsb-pc-injector/main/payload"
+$DefaultSource = "https://raw.githubusercontent.com/nekwken/bsb-pc-injector/main/payload"
 
 function Get-UpdateConfig {
     $cfg = [ordered]@{ url = $DefaultSource; mirrors = @(); autoCheck = $true; lastCheck = $null; lastResult = $null; latestVersion = $null }
