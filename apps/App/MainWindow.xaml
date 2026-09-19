@@ -1,4 +1,4 @@
-<Window x:Class="BsbInstaller.MainWindow"
+﻿<Window x:Class="BsbApp.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="空降助手" Height="700" Width="1020" MinHeight="600" MinWidth="900"
@@ -90,15 +90,6 @@
                       <StackPanel Orientation="Horizontal">
                         <Ellipse x:Name="AutoDot" Style="{StaticResource Dot}" />
                         <TextBlock x:Name="AutoText" Margin="7,0,0,0" />
-                      </StackPanel>
-                    </Border>
-                  </StackPanel>
-                  <StackPanel Orientation="Horizontal">
-                    <TextBlock Style="{StaticResource RowLabel}" Width="72" Text="托盘图标" />
-                    <Border x:Name="TrayPill" Style="{StaticResource Pill}">
-                      <StackPanel Orientation="Horizontal">
-                        <Ellipse x:Name="TrayDot" Style="{StaticResource Dot}" />
-                        <TextBlock x:Name="TrayText" Margin="7,0,0,0" />
                       </StackPanel>
                     </Border>
                   </StackPanel>
@@ -253,16 +244,6 @@
                 <TextBlock Style="{StaticResource CardTitle}" Text="客户端" />
                 <WrapPanel>
                   <Button Style="{StaticResource Btn}" Content="一键适配" Click="OnPatch" />
-                </WrapPanel>
-              </StackPanel>
-            </Border>
-
-            <Border Style="{StaticResource Card}">
-              <StackPanel>
-                <TextBlock Style="{StaticResource CardTitle}" Text="托盘图标" />
-                <WrapPanel>
-                  <Button Style="{StaticResource Btn}" Content="启动" Click="OnTrayStart" />
-                  <Button Style="{StaticResource Btn}" Content="停止" Click="OnTrayStop" />
                 </WrapPanel>
               </StackPanel>
             </Border>

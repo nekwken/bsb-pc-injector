@@ -6,8 +6,8 @@
   Build the two native apps into bin\.
 
 .DESCRIPTION
-  bin\BSB安装器.exe  — WPF 安装器（Mica 背景），启动时读 tools\InstallerActions.ps1
-  bin\BSB托盘.exe    — 托盘图标，登录自启用它
+  bin\BSB.exe  — 主程序：托盘常驻 + 设置窗口（WPF/Mica）同一进程
+                 双击开窗口；--tray 只起托盘（登录自启用）；--ui 唤出已运行实例的窗口
 
   需要 .NET 8 SDK（含 Windows Desktop 运行时）。发布为框架依赖的单文件，
   所以 exe 很小（~200KB），运行需要本机的 .NET 8 Desktop 运行时。
@@ -28,15 +28,14 @@ if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
 }
 
 $projects = @(
-    @{ Dir = "apps\Installer"; Name = "安装器" },
-    @{ Dir = "apps\Tray"; Name = "托盘" }
+    @{ Dir = "apps\App"; Name = "主程序" }
 )
 
 foreach ($p in $projects) {
     $dir = Join-Path $root $p.Dir
     Write-Host "==> 构建 $($p.Name) ($($p.Dir))" -ForegroundColor Cyan
     # 关掉正在运行的旧实例，否则单文件发布无法覆盖 exe
-    $exeName = if ($p.Name -eq "托盘") { "BSB托盘" } else { "BSB安装器" }
+    $exeName = "BSB"
     Get-Process -Name $exeName -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
     Start-Sleep -Milliseconds 400
 
@@ -54,5 +53,5 @@ Get-ChildItem $bin -Filter *.exe | ForEach-Object {
     Write-Host ("  {0}  {1:N0} KB" -f $_.Name, ($_.Length / 1KB)) -ForegroundColor Green
 }
 Write-Host ""
-Write-Host "安装器：双击 bin\BSB安装器.exe（或桌面「打开安装器.cmd」）" -ForegroundColor Yellow
-Write-Host "托盘  ：登录自启用它；也可 .\enable-seamless.ps1 重新注册自启" -ForegroundColor Yellow
+Write-Host "主程序：双击 bin\BSB.exe（托盘常驻 + 设置窗口；登录自启用 BSB.exe --tray）" -ForegroundColor Yellow
+Write-Host "" -ForegroundColor Yellow

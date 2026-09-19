@@ -1,7 +1,8 @@
-<Application x:Class="BsbInstaller.App"
+<Application x:Class="BsbApp.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             StartupUri="MainWindow.xaml">
+             ShutdownMode="OnExplicitShutdown">
+  <!-- 不设 StartupUri：窗口由 Program.Main / 托盘按需创建，托盘常驻时不关进程 -->
   <Application.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>

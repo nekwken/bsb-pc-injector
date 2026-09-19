@@ -109,7 +109,7 @@ function Install-InjectorAutostart {
       .SYNOPSIS
         Register a hidden, flash-free launcher at logon.
       .DESCRIPTION
-        Defaults to the native tray app (bin\BSB托盘.exe), which starts the
+        Defaults to the main app (bin\BSB.exe --tray), which starts the
         injector itself and gives the user a way back in. Use -Mode injector for
         the plain injector-only entry (wscript + .vbs, no tray icon).
         HKCU\Run, so no admin rights are needed.
@@ -121,9 +121,9 @@ function Install-InjectorAutostart {
     )
 
     if ($Mode -eq 'tray') {
-        $exe = Join-Path $PatcherRoot "bin\BSB托盘.exe"
+        $exe = Join-Path $PatcherRoot "bin\BSB.exe"
         if (-not (Test-Path $exe)) { throw "Missing $exe (build the apps first)" }
-        $cmd = '"' + $exe + '"'
+        $cmd = '"' + $exe + '" --tray'      # --tray：只起托盘，不开设置窗口
     } else {
         $vbs = Join-Path $PatcherRoot "runtime\bsb-injector-hidden.vbs"
         if (-not (Test-Path $vbs)) { throw "Missing $vbs" }

@@ -1,4 +1,4 @@
-# 发布检查清单
+﻿# 发布检查清单
 
 给「准备把本仓库公开」时用的清单。做完这些再 push。
 
@@ -31,7 +31,7 @@ git grep -n "Users\\\\"                                                         
 - 名称建议：`bilibili-pc-sponsorblock` / `bsb-pc-injector`
 - 描述：`在官方哔哩哔哩 PC 客户端里使用 SponsorBlock（空降助手）：CDP 运行时注入，不改客户端文件`
 - Topics：`bilibili` `sponsorblock` `electron` `cdp` `windows` `gpl-3-0`
-- Releases：附上 `bin/BSB安装器.exe`、`bin/BSB托盘.exe`（从 `build-apps.ps1` 产出），
+- Releases：附上 `bin/BSB.exe`（从 `build-apps.ps1` 产出，单文件），
   说明里写清「需要 .NET 8 Desktop 运行时」
 - 建议关闭 Issues 里的空模板，或加一个 `config.yml` 引导先看 `docs/workflow.md`
 

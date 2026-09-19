@@ -18,7 +18,7 @@
 param(
     [Parameter(Mandatory = $true)]
     [ValidateSet('get-state', 'shortcut-args', 'autostart', 'injector-start', 'injector-stop', 'open-path', 'diagnostics',
-        'patch', 'update-plugin', 'pick-path', 'tray-start', 'tray-stop', 'config-save', 'plugin-check', 'plugin-auto',
+        'patch', 'update-plugin', 'pick-path', 'config-save', 'plugin-check', 'plugin-auto',
         'client-scan', 'client-set')]
     [string]$Action,
 
@@ -56,16 +56,14 @@ function Get-InjectorProcs {
         Where-Object { $_.CommandLine -match "injector\.mjs" -and $Shells -notcontains $_.Name })
 }
 
-function Get-TrayExe {
-    $exe = Join-Path $PatcherRoot "bin\BSB托盘.exe"
-    if (-not (Test-Path $exe)) { throw "missing $exe (build the tray app first)" }
-    return $exe
+function Get-AppExe {
+    # 主程序：托盘 + 设置窗口同一个 exe
+    return (Join-Path $PatcherRoot "bin\BSB.exe")
 }
 
-function Get-TrayProcs {
-    # the tray is a small native exe now
+function Get-AppProcs {
     @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -eq 'BSB托盘.exe' -or $_.CommandLine -match "bsb-tray\.ps1" })
+        Where-Object { $_.Name -eq 'BSB.exe' })
 }
 
 function Test-IsAdmin {
@@ -329,7 +327,7 @@ function Invoke-Action {
                         })
                     logFile = (Join-Path $StateRoot "logs\injector.log")
                 }
-                tray      = [ordered]@{ count = @(Get-TrayProcs).Count }
+                app       = [ordered]@{ count = @(Get-AppProcs).Count; exe = (Get-AppExe) }
                 configInfo = Get-ConfigInfo
                 updateInfo = (Get-UpdateState)
                 autostart = [ordered]@{ enabled = [bool](Get-InjectorAutostart); command = (Get-InjectorAutostart) }
@@ -425,20 +423,6 @@ function Invoke-Action {
             foreach ($p in $procs) { try { Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop } catch {} }
             Start-Sleep -Milliseconds 400
             return [ordered]@{ ok = $true; stopped = $procs.Count; count = @(Get-InjectorProcs).Count }
-        }
-
-        'tray-start' {
-            $exe = Get-TrayExe
-            Start-Process -FilePath $exe -WindowStyle Hidden
-            Start-Sleep -Seconds 2
-            return [ordered]@{ ok = $true; count = @(Get-TrayProcs).Count; exe = $exe }
-        }
-
-        'tray-stop' {
-            $procs = @(Get-TrayProcs)
-            foreach ($p in $procs) { try { Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop } catch {} }
-            Start-Sleep -Milliseconds 300
-            return [ordered]@{ ok = $true; stopped = $procs.Count; count = @(Get-TrayProcs).Count }
         }
 
         'patch' {

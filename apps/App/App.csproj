@@ -3,21 +3,34 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
+    <!-- 一个 exe 同时承载托盘与设置窗口：WPF 负责窗口，WinForms 负责 NotifyIcon -->
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
     <Nullable>disable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>BSB安装器</AssemblyName>
-    <RootNamespace>BsbInstaller</RootNamespace>
+    <AssemblyName>BSB</AssemblyName>
+    <RootNamespace>BsbApp</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <DebugType>none</DebugType>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <ApplicationIcon>..\Assets\bsb.ico</ApplicationIcon>
+    <!-- 自己写 Main：要解析启动参数与单实例 -->
+    <StartupObject>BsbApp.Program</StartupObject>
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- WinForms SDK 会把这些塞进全局 using，和 WPF 的 Application/CheckBox/Color 等撞名；
+         只有 Tray.cs 需要它们，那里显式引入即可 -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.cs" />
     <Compile Include="App.xaml.cs" />
     <Compile Include="MainWindow.xaml.cs" />
+    <Compile Include="Tray.cs" />
     <Compile Include="Backend.cs" />
   </ItemGroup>
 

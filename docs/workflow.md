@@ -1,4 +1,4 @@
-# 个人使用工作流（CDP 运行时注入）
+﻿# 个人使用工作流（CDP 运行时注入）
 
 当前方案**不修改官方 `app.asar`**：注入器通过 `--remote-debugging-port=9222` 连接到官方客户端，
 把 `payload/` 里的脚本注进页面。官方客户端升级后无需重打包。
@@ -43,11 +43,13 @@ powershell -ExecutionPolicy Bypass -File .\enable-seamless.ps1
 
 之后照旧打开哔哩哔哩即可。撤销：`.\enable-seamless.ps1 -Uninstall`。
 
-## 安装器（原生应用）
+## 主程序（托盘 + 设置窗口）
 
 ```powershell
-# 直接运行
-.\bin\BSB安装器.exe
+# 直接运行（托盘 + 设置窗口）
+.\bin\BSB.exe
+# 只起托盘（登录自启用的形态）
+.\bin\BSB.exe --tray
 # 从源码重建（需要 .NET 8 SDK）
 powershell -ExecutionPolicy Bypass -File .\build-apps.ps1
 ```
@@ -75,16 +77,14 @@ powershell -ExecutionPolicy Bypass -File .\build-apps.ps1
   临时文件由父进程读回；`-Paths` 的值显式加引号（`-ArgumentList` 数组按空格拼接且不加引号，
   `Start Menu` 这类路径会被拆开）。
 
-## 托盘图标
+## 托盘图标（与设置窗口同一个进程）
 
-登录自启启动的是 `bin\BSB托盘.exe`（原生，私有用量约 11MB，替代了原来的 PowerShell 版本）。
-它启动时会把注入器拉起来。右键菜单：状态、打开安装器、启动/重启/停止注入器、打开日志、
-打开项目目录、退出托盘。
+`bin\BSB.exe --tray` 是登录自启用的形态：只起托盘不开窗口（私有用量约 17MB）。
+托盘菜单：状态、打开设置窗口、启动/重启/停止注入器、检查插件更新、打开日志/项目目录、退出。
 
-- 单实例靠命名互斥体 `Local\BSBTrayIcon`。
-- 状态读取调 `get-state`（约 0.3–0.8 秒），所以菜单状态是打开菜单时才刷新的。
-- 不想要图标：`.\enable-seamless.ps1 -NoTray`（自启改为 `runtimesb-injector-hidden.vbs`，
-  直接拉注入器），或在安装器「维护 → 停止托盘」。
+- 双击 `bin\BSB.exe`（不带参数）= 托盘 + 设置窗口；关窗口只是隐藏，托盘菜单「退出」才结束进程。
+- 再次双击不会开第二个进程，只会把已运行的窗口唤到前台（命名互斥体 + 命名事件）。
+- 不想要托盘：`.\enable-seamless.ps1 -NoTray`（自启改为 `runtimesb-injector-hidden.vbs` 直接拉注入器）。
 
 ## 手动模式（排查用）
 

@@ -1,4 +1,4 @@
-# 架构说明
+﻿# 架构说明
 
 ## 目标与约束
 
@@ -19,8 +19,7 @@
    payload/bsb-ui.js        播放页 UI           │  命令文件：command.json
    payload/bsb-settings.js  官方设置页面板       │  状态镜像：live-config.json
                                                │
-   apps/Installer (WPF)  ──┐                   │
-   apps/Tray     (WinForms)┴─► tools/InstallerActions.ps1（唯一后端）
+   apps/App (WPF + 托盘) ───► tools/InstallerActions.ps1（唯一后端）
 ```
 
 ## 注入器
@@ -84,7 +83,7 @@ payload/bsb-config.default.json  <  %LOCALAPPDATA%\bsb-client-patcher\bsb-config
   所以界面拿到的返回结构和非提权时一样。
   转发 `-Paths` 时必须显式加引号：`Start-Process -ArgumentList` 把数组按空格拼接且不加引号，
   `Start Menu` 这类路径会被拆成两个参数。
-- 登录自启：`HKCU\Run` → `bin\BSB托盘.exe`（托盘自己再把注入器拉起来）；
+- 登录自启：`HKCU\Run` → `bin\BSB.exe --tray`（同一进程的托盘形态，它再把注入器拉起来）；
   没构建 exe 时退回 `wscript.exe runtime\bsb-injector-hidden.vbs`。
 
 ## 客户端位置：自动扫描与手动选择

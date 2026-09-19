@@ -1,4 +1,4 @@
-# 空降助手 · 哔哩哔哩 PC 客户端注入
+﻿# 空降助手 · 哔哩哔哩 PC 客户端注入
 
 在**官方哔哩哔哩 Windows 客户端**里用上 [BilibiliSponsorBlock](https://github.com/hanydd/BilibiliSponsorBlock)
 （小电视空降助手）的能力：自动跳过 / 静音赞助片段、片头片尾、三连提醒等。
@@ -78,7 +78,7 @@ powershell -ExecutionPolicy Bypass -File .\status.ps1
 
 - **播放页**：鼠标移到画面上 → 分辨率控件左侧的 **BSB** → 悬浮面板
 - **完整设置**：主界面 **设置 → 空降助手**
-- **安装器**：双击 `bin\BSB安装器.exe`
+- **主程序**：双击 `bin\BSB.exe`（托盘常驻 + 设置窗口，同一个 exe）
 - **托盘**：右键图标可启停注入器 / 打开安装器 / 看日志；有插件新版本时会提示
 - 注入器日志：`%LOCALAPPDATA%\bsb-client-patcher\logs\injector.log`
 

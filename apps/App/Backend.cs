@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+﻿// SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 BSB PC client injector contributors
 // 与 PowerShell 后端（tools\InstallerActions.ps1）通信。
 // 安装器不自己实现业务逻辑：状态采集、快捷方式改写、提权、启停注入器/托盘、
@@ -9,7 +9,7 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 
-namespace BsbInstaller;
+namespace BsbApp;
 
 internal static class Backend
 {

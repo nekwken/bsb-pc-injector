@@ -66,7 +66,7 @@ if ($Uninstall) {
 
     Write-Step "Stop tray icon"
     $trays = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -eq 'BSB托盘.exe' -or ($_.Name -match '^(powershell|pwsh)\.exe$' -and $_.CommandLine -match "bsb-tray\.ps1") })
+        Where-Object { $_.Name -eq 'BSB.exe' -or ($_.Name -match '^(powershell|pwsh)\.exe$' -and $_.CommandLine -match "bsb-tray\.ps1") })
     foreach ($t in $trays) { try { Stop-Process -Id $t.ProcessId -Force -ErrorAction Stop } catch {} }
     if ($trays.Count) { Write-Ok "stopped $($trays.Count) tray process(es)" } else { Write-Ok "no tray running" }
 
@@ -105,12 +105,12 @@ if ($needsAdmin.Count) {
 Write-Step "Register hidden startup at logon"
 try {
     # 没有构建过托盘 exe（例如只克隆了源码）时自动退回「只起注入器」模式
-    $trayExe = Join-Path $PatcherRoot "bin\BSB托盘.exe"
+    $trayExe = Join-Path $PatcherRoot "bin\BSB.exe"
     $mode = if ($NoTray -or -not (Test-Path $trayExe)) { 'injector' } else { 'tray' }
     $cmd = Install-InjectorAutostart -PatcherRoot $PatcherRoot -Mode $mode
     Write-Ok "HKCU Run ($mode): $cmd"
     if ($mode -eq 'injector' -and -not $NoTray) {
-        Write-Host "  (没找到 bin\BSB托盘.exe，先按无托盘模式注册；跑一次 build-apps.ps1 就有托盘图标)" -ForegroundColor DarkGray
+        Write-Host "  (没找到 bin\BSB.exe，先按无托盘模式注册；跑一次 build-apps.ps1 就有托盘图标)" -ForegroundColor DarkGray
     }
 } catch {
     Write-Warn2 "autostart failed: $($_.Exception.Message)"
@@ -120,10 +120,10 @@ try {
 if (-not $NoStart) {
     if (-not $NoTray) {
         Write-Step "Start the tray icon now (it starts the injector itself)"
-        $trayExe = Join-Path $PatcherRoot "bin\BSB托盘.exe"
+        $trayExe = Join-Path $PatcherRoot "bin\BSB.exe"
         try {
             if (Test-Path $trayExe) {
-                Start-Process -FilePath $trayExe -WindowStyle Hidden
+                Start-Process -FilePath $trayExe -ArgumentList '--tray' -WindowStyle Hidden
             } else {
                 Write-Warn2 "missing $trayExe - build the apps first"
             }

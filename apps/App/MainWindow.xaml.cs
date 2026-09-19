@@ -14,7 +14,7 @@ using System.Windows.Media.Imaging;
 using System.Globalization;
 using Ellipse = System.Windows.Shapes.Ellipse;
 
-namespace BsbInstaller;
+namespace BsbApp;
 
 public partial class MainWindow : Window
 {
@@ -202,9 +202,6 @@ public partial class MainWindow : Window
         var auto = Backend.Bool(Nested(s, "autostart"), "enabled");
         Paint(AutoPill, AutoDot, AutoText, auto ? "已启用" : "未启用", auto ? "ok" : "warn");
 
-        var trayCount = Backend.Int(Nested(s, "tray"), "count");
-        Paint(TrayPill, TrayDot, TrayText, trayCount > 0 ? "运行中" : "未运行", trayCount > 0 ? "ok" : "warn");
-
         AutostartBox.IsChecked = auto;
 
         // 插件更新状态
@@ -223,6 +220,18 @@ public partial class MainWindow : Window
         BuildLivePages();
         BuildShortcutList();
         LoadConfigIntoForm();
+    }
+
+    /// <summary>点 × 只是隐藏到托盘；托盘菜单「退出」才真正结束进程。</summary>
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        if (!App.Exiting)
+        {
+            e.Cancel = true;
+            Hide();
+            return;
+        }
+        base.OnClosing(e);
     }
 
     private static JsonElement Nested(JsonElement parent, string name)
@@ -682,12 +691,6 @@ public partial class MainWindow : Window
         if (Backend.Bool(r.Value, "cancelled")) { SetStatus("已取消", null); return null; }
         return Backend.Str(r.Value, "path");
     }
-
-    private async void OnTrayStart(object sender, RoutedEventArgs e)
-        => await RunAsync("正在启动托盘…", "tray-start", null, "托盘已启动");
-
-    private async void OnTrayStop(object sender, RoutedEventArgs e)
-        => await RunAsync("正在停止托盘…", "tray-stop", null, "托盘已停止");
 
     private async void OnOpenLogs(object sender, RoutedEventArgs e)
         => await RunAsync("正在打开…", "open-path", new[] { new KeyValuePair<string, string>("Which", "logs") }, "已打开日志目录");
