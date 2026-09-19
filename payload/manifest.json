@@ -1,0 +1,22 @@
+{
+  "name": "bsb-client-payload",
+  "displayName": "BSB inject for Bilibili PC client",
+  "version": "0.4.6",
+  "bsbApiBase": "https://www.bsbsb.top",
+  "minClientVersion": "1.0.0",
+  "targetClient": "bilibili-pc-electron",
+  "injectStrategy": "cdp-runtime",
+  "files": [
+    "bsb-content.js",
+    "bsb-ui.js",
+    "bsb-settings.js",
+    "bsb-config.default.json"
+  ],
+  "legacyFiles": [
+    "bootstrap-lite.js",
+    "bsb-hooks.js",
+    "bsb-preload.js"
+  ],
+  "notes": "Control-bar BSB button (one stable instance, click toggles the floating panel) + 4px preview bar + skip notice + official settings page. No resident badge.",
+  "license": "GPL-3.0 (derived from hanydd/BilibiliSponsorBlock)"
+}

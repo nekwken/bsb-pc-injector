@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>BSB安装器</AssemblyName>
+    <RootNamespace>BsbInstaller</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <DebugType>none</DebugType>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <ApplicationIcon>..\Assets\bsb.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="App.xaml.cs" />
+    <Compile Include="MainWindow.xaml.cs" />
+    <Compile Include="Backend.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 上游插件（GPL-3.0）自带的图标。
+         ico 作为 exe 的文件图标（资源管理器会按需选帧）；
+         窗口/任务栏图标用 256px 原图——WPF 的 BitmapImage 只解码 ico 的第 0 帧（16px），
+         任务栏会把 16px 放大到 32px，又糊又显小。 -->
+    <Resource Include="..\Assets\bsb.ico" Link="Assets/bsb.ico" />
+    <Resource Include="..\Assets\bsb-256.png" Link="Assets/bsb-256.png" />
+  </ItemGroup>
+
+</Project>

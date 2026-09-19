@@ -1,0 +1,37 @@
+# 运行期状态、日志、备份（不在源码树里）
+%LOCALAPPDATA%/bsb-client-patcher/
+
+# 官方客户端安装包/解包产物 —— 专有代码，绝不能发布
+research/client/
+research/_archive-work-patcher/
+_asar-check/
+_asar-now/
+
+# 上游项目克隆（GPL 项目，请自行 clone，不要 vendoring）
+research/BilibiliSponsorBlock/
+
+# 构建产物
+bin/
+apps/*/bin/
+apps/*/obj/
+tools/npm/node_modules/
+node_modules/
+*.user
+.vs/
+
+# 个人记录（含聊天记录/本机路径），不进公开仓库
+我想将这个插件*.md
+
+# 工具状态（mimosa 安全扫描的账本/历史，64MB，与本项目无关）
+.mimosa/
+
+# 临时文件
+*.log
+*.tmp
+_ui.png
+
+# 开发期调试脚本（探针/追踪/验证），只留在本机
+runtime/*
+!runtime/injector.mjs
+!runtime/bsb-injector-hidden.vbs
+tools/_*.py

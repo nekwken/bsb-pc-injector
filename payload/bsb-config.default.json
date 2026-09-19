@@ -1,0 +1,28 @@
+{
+  "enabled": true,
+  "apiBase": "https://www.bsbsb.top",
+  "originHeader": "electron-bsb-patcher",
+  "xExtVersion": "0.1.0",
+  "minVotes": 0,
+  "categories": {
+    "sponsor": true,
+    "selfpromo": true,
+    "exclusive_access": false,
+    "interaction": true,
+    "poi_highlight": false,
+    "intro": true,
+    "outro": true,
+    "preview": true,
+    "padding": true,
+    "filler": true,
+    "music_offtopic": true
+  },
+  "actionPreferences": {
+    "skip": true,
+    "mute": true,
+    "full": false,
+    "poi": false
+  },
+  "skipBufferSec": 0.15,
+  "debug": false
+}
