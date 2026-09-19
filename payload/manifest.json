@@ -1,7 +1,7 @@
 {
   "name": "bsb-client-payload",
   "displayName": "BSB inject for Bilibili PC client",
-  "version": "0.4.6",
+  "version": "0.4.8",
   "bsbApiBase": "https://www.bsbsb.top",
   "minClientVersion": "1.0.0",
   "targetClient": "bilibili-pc-electron",

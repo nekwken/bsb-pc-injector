@@ -12,7 +12,7 @@
     if (window.__BSB_UI_LOADED__) return;
     window.__BSB_UI_LOADED__ = true;
 
-    const VERSION = "0.4.6";
+    const VERSION = "0.4.8";
 
     try {
         const badge = document.getElementById("bsb-status-badge");
@@ -508,7 +508,7 @@
         let html = "";
         html += '<div style="opacity:.75;margin-bottom:6px">' +
             (id ? id.bvid + (id.cid ? " · cid " + id.cid : "") : "未识别视频") +
-            " · v" + ((api && api.version) || "0.4.6") + "</div>";
+            " · v" + ((api && api.version) || "0.4.8") + "</div>";
 
         if (!segs.length) {
             html += '<div class="empty">当前视频暂无片段</div>';
@@ -598,6 +598,28 @@
         syncButtonState();
     }
 
+    /** 当前页面识别到的视频号（内容脚本从 URL 解析）。 */
+    function currentBvid() {
+        const api = window.__bsb;
+        return (api && api.videoId && api.videoId.bvid) || "";
+    }
+
+    /** 片段面板只属于播放页：主界面/首页等没有视频的页面不该挂着它。 */
+    function panelAllowed() {
+        return !!currentBvid();
+    }
+
+    // 面板打开时对应的视频号；换视频或离开播放页就把它关掉，
+    // 否则「上次点开过」的状态会跟着用户跑到别的页面，看起来像自己弹出来。
+    let panelBvid = "";
+
+    function guardPanelScope() {
+        if (!window.__bsbPanelOpen) { panelBvid = ""; return; }
+        const bvid = currentBvid();
+        if (!bvid) { closePanel(); return; }              // 非播放页
+        if (panelBvid && bvid !== panelBvid) closePanel(); // 换了视频
+    }
+
     /** A hidden node with a stale "open" flag is closed as far as the user is concerned. */
     function isPanelOpen() {
         const el = panelNode();
@@ -626,6 +648,8 @@
             closePanel();
             return;
         }
+        if (!panelAllowed()) return;   // 没有视频的页面不给开面板
+        panelBvid = currentBvid();
         renderPanel();
         try { document.documentElement.appendChild(el); } catch (_) {
             try { document.body.appendChild(el); } catch (__) {}
@@ -667,6 +691,12 @@
         document.querySelectorAll(".bsb-ctrl-btn").forEach(function (el) {
             if (el !== btn) { try { el.remove(); } catch (_) {} }
         });
+
+        // 没有视频的页面（首页/动态/设置…）不放按钮：那里的控制栏不属于播放器
+        if (!panelAllowed()) {
+            if (btn) { try { btn.remove(); } catch (_) {} }
+            return null;
+        }
 
         if (!btn) {
             btn = document.createElement("div");
@@ -738,6 +768,7 @@
         const api = window.__bsb;
         const segs = (api && api.segments) || [];
         renderPreviewBar(segs);
+        guardPanelScope();
         if (isPanelOpen()) keepPanelAlive();
         purgePermanentBadge();
     }
@@ -757,6 +788,7 @@
             ensureControlButton();
             updateButtonVisibility();
             ensurePreviewBar();
+            guardPanelScope();
             keepPanelAlive();
             if (window.__bsb && window.__bsb.__uiDirty) {
                 window.__bsb.__uiDirty = false;

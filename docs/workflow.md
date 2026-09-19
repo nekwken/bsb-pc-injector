@@ -47,23 +47,23 @@ powershell -ExecutionPolicy Bypass -File .\enable-seamless.ps1
 
 ```powershell
 # 直接运行
-.in\BSB安装器.exe
+.in\BSB安装器.exe
 # 从源码重建（需要 .NET 8 SDK）
-powershell -ExecutionPolicy Bypass -File .uild-apps.ps1
+powershell -ExecutionPolicy Bypass -File .\build-apps.ps1
 ```
 
 - `apps\Installer\`：WPF 单文件 exe。窗口用 `DwmSetWindowAttribute(38, Mica)` +
   `DwmExtendFrameIntoClientArea(-1)` + `Background=Transparent` 得到真云母背景；
   系统不支持时回退到深色底。图标在运行时用 `DrawingVisual` 画（不打包位图资源）。
 - `apps\Tray\`：WinForms 托盘 exe，私有用量约 11MB。
-- 图标：`apps\Assetssb.ico` 由上游的 `IconSponsorBlocker256px.png` 生成（多尺寸），
+- 图标：`apps\Assets\bsb.ico` 由上游的 `IconSponsorBlocker256px.png` 生成（多尺寸），
   两个项目都用 `<ApplicationIcon>` 作为文件图标；安装器再用 WPF `Resource` 作窗口图标，
   托盘用 `EmbeddedResource LogicalName="bsb.ico"` 运行时读取（读不到就退回运行时画的 B 徽标）。
-  改图标只需替换 `apps\Assetssb.ico` 后重跑 `build-apps.ps1`。
+  改图标只需替换 `apps\Assets\bsb.ico` 后重跑 `build-apps.ps1`。
 - **界面不实现业务逻辑**：所有状态和动作都调 `tools\InstallerActions.ps1`，
   和命令行、`status.ps1` 共用同一套代码路径，不会各自漂移。
 - **界面不直连 CDP**：配置下发靠命令文件 —— 安装器写
-  `%LOCALAPPDATA%sb-client-patcher\command.json`（`{id, cmd:"push-config", config}`），
+  `%LOCALAPPDATA%sb-client-patcher\command.json`（`{id, cmd:"push-config", config}`），
   注入器在下一轮轮询里读到就写进各页面的 localStorage 并刷新，然后删掉文件。
   注入器另外每 10 秒把页面里生效的配置镜像到 `live-config.json`，安装器据此显示**真实生效值**。
 - 提权：`Invoke-Elevated` 用 `Start-Process -Verb RunAs` 重新拉起自己，子进程把 JSON 写进
@@ -78,7 +78,7 @@ powershell -ExecutionPolicy Bypass -File .uild-apps.ps1
 
 - 单实例靠命名互斥体 `Local\BSBTrayIcon`。
 - 状态读取调 `get-state`（约 0.3–0.8 秒），所以菜单状态是打开菜单时才刷新的。
-- 不想要图标：`.\enable-seamless.ps1 -NoTray`（自启改为 `runtimesb-injector-hidden.vbs`，
+- 不想要图标：`.\enable-seamless.ps1 -NoTray`（自启改为 `runtimesb-injector-hidden.vbs`，
   直接拉注入器），或在安装器「维护 → 停止托盘」。
 
 ## 手动模式（排查用）
@@ -173,9 +173,10 @@ payload/
 | 完全没反应 | `.\status.ps1` 看注入器是否在跑、9222 是否 open、各快捷方式是否带调试端口；确认不是从**未改写的系统级开始菜单**启动的（用管理员跑一次 `enable-seamless.ps1`） |
 | 进度条没有色条 | 该视频在 `bsbsb.top` 上确实没有片段（面板里会显示「当前视频暂无片段」）；若片段数 > 0 但条不见了，说明播放器刚重建了进度条，观察器会在 1 秒内补回 |
 | 设置页没有「空降助手」 | 设置页刷新一次；或重启注入器后再进设置 |
-| 找不到 BSB 按钮 | 按钮在控制栏里、分辨率控件左侧，跟着控制栏显隐 —— 鼠标移到画面上，控制栏出现就能看到 |
+| 找不到 BSB 按钮 | 按钮在控制栏里、分辨率控件左侧，跟着控制栏显隐 —— 鼠标移到画面上，控制栏出现就能看到。按钮**只在识别到视频的页面**出现（首页/动态/设置等页面本来就没有） |
+| 悬浮面板在非播放页出现 / 没点它自己冒出来 | 0.4.8 起已修：面板与按钮都以「当前页面识别到 BV 号」为前提，离开视频页或换视频时面板自动关闭。若仍复现，用安装器「总览 → 已打开的页面」确认页面的 `ui` 版本是最新的 |
 | 客户端自己更新后 | 快捷方式可能被重建、丢失调试端口：再跑一次 `.\patch.ps1`（会重新改写快捷方式并确保自启存在） |
-| 安装器打不开 / 界面空白 | 需要 .NET 8 Desktop 运行时；用 `.uild-apps.ps1` 重建，或先跑 `dotnet --list-runtimes` 确认有 `Microsoft.WindowsDesktop.App 8.x` |
+| 安装器打不开 / 界面空白 | 需要 .NET 8 Desktop 运行时；用 `.\build-apps.ps1` 重建，或先跑 `dotnet --list-runtimes` 确认有 `Microsoft.WindowsDesktop.App 8.x` |
 | 云母背景没生效 | 只有 Win11 22H2+ 支持；老系统会自动退回深色底，功能不受影响 |
 | 设置页里「空降助手」不见了 | 0.4.3 起已修：设置页重新渲染后由 800ms 维护 ticker 自动补挂，并会在打开设置页时自动显示一次。若仍不见，看安装器「总览 → 实时页面」里主界面的 `settings` 版本是否为最新 |
 | 页面刷新后插件消失 | 0.4.3 起已修：注入器改为**每轮直接问页面**（不再用「这个 target 注入过」的本地表，那张表在页面刷新后不会失效，导致漏注入） |

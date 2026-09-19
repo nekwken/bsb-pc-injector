@@ -17,7 +17,7 @@
         }
         return 0;
     }
-    const SELF_VERSION = "0.4.6";
+    const SELF_VERSION = "0.4.8";
 
     // Re-mounting is idempotent (ensureCatalog reuses #bsb-catalog-item), so a
     // newer build is allowed to take over a page that already runs an older one.
